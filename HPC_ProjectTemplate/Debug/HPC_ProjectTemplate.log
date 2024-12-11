@@ -1,7 +1,6 @@
 ﻿  Source.cpp
-D:\Codes\C#\HPC_ProjectTemplate\HPC_ProjectTemplate\Source.cpp(116,13): warning C4244: 'return': conversion from 'double' to 'int', possible loss of data
-D:\Codes\C#\HPC_ProjectTemplate\HPC_ProjectTemplate\Source.cpp(227,65): warning C4244: '+=': conversion from 'double' to 'int', possible loss of data
-  .NETFramework,Version=v4.7.2.AssemblyAttributes.cpp
-  Generating Code...
+C:\Users\Reem\source\repos\MPI_image_processing\HPC_ProjectTemplate\Source.cpp(116,13): warning C4244: 'return': conversion from 'double' to 'int', possible loss of data
+C:\Users\Reem\source\repos\MPI_image_processing\HPC_ProjectTemplate\Source.cpp(222,24): warning C4018: '<': signed/unsigned mismatch
+C:\Users\Reem\source\repos\MPI_image_processing\HPC_ProjectTemplate\Source.cpp(242,59): warning C4244: '+=': conversion from 'double' to 'int', possible loss of data
   Source.obj : MSIL module encountered; incremental linking is disabled for MSIL; performing full link
-  HPC_ProjectTemplate.vcxproj -> D:\Codes\C#\HPC_ProjectTemplate\Debug\HPC_ProjectTemplate.exe
+  HPC_ProjectTemplate.vcxproj -> C:\Users\Reem\Source\Repos\MPI_image_processing\Debug\HPC_ProjectTemplate.exe

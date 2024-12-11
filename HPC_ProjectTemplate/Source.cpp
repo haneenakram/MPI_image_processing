@@ -103,134 +103,145 @@ void displayImage(System::String^ imagePath) {
 	Application::Run(form);
 }
 
-int calcNumberOfChunks(int imglength,int size) {
-	int chunks = imglength / size;
-	if (chunks % 2 != 0) {
-		chunks++;
-	}
-	return chunks;
+int calcNumberOfchunkSize(int imglength,int size) {
+	//int chunks = imglength / size;
+	//if (chunks % size != 0) {
+	//	chunks++;
+	//}
+	return  imglength / size;
 }
 
 //(x,y) (x2,y2)
 int euclideanDistance(int point1,int point2) {
 	return sqrt((point1 - point2) * (point1 - point2));
 }
-
 int main()
 {
 	int ImageWidth = 4, ImageHeight = 4;
-
 	int start_s, stop_s, TotalTime = 0;
-
 	System::String^ imagePath;
 	std::string img;
 	img = "..//Data//Input//test.png";
-
 	imagePath = marshal_as<System::String^>(img);
 	int* imageData = inputImage(&ImageWidth, &ImageHeight, imagePath); //array of intinsities
-
 	start_s = clock();
 	/***********************************************************/
+
 	MPI_Init(NULL, NULL);
 	int size; //number of processors
 	int rank; //id of each processor
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	//displayImage(imagePath);
 	int k = 3;
-	int chunks = calcNumberOfChunks(ImageHeight * ImageWidth, size);//number assigned to processors
-	int* recvchunk = new int[chunks];
-	int w=0, g=0, b=0;
-	int centroids[3] = { 255, 125, 0};// Initial centroids
-	int* labels = new int[ImageHeight * ImageWidth];
-	MPI_Scatter(imageData, chunks, MPI_INT, recvchunk, chunks, MPI_INT, 0, MPI_COMM_WORLD);
+	 int chunkSize = calcNumberOfchunkSize(ImageHeight * ImageWidth, size);//number assigned to processors
+	int* recvchunk = new int[chunkSize];
+	int centroids[3];
+	int* localdata= new int [chunkSize];
+	int* newCentroids= new int[chunkSize];
+	bool converge = false;
+	int itr = 100;
+	int *count = new int[3];
+	int* sum = new int[3];
+	int* localSum = new int[3]();
+	int* localCount = new int[3]();
+	int* globalImage=new int[size * chunkSize];
+	MPI_Scatter(imageData, chunkSize, MPI_INT, recvchunk, chunkSize, MPI_INT, 0, MPI_COMM_WORLD);
+	
+	if (rank == 0) {
+		for (size_t i = 0; i < 3; i++)
+		{
+			centroids[i] = (i*255)/(2);
+		}
+	}
+	MPI_Bcast(centroids, 3, MPI_INT, 0, MPI_COMM_WORLD);
 
-	while(true)
-	{
-		vector<int> whiteArr, grayArr, blackArr;
-		for (int i = 0; i < chunks; ++i) {
-			int minDistance = 300;
-			for (int j = 0; j < k; ++j) {
+	while (!converge&&itr>0) { //while(true)
+		fill(localSum, localSum + 3, 0);
+		fill(localCount, localCount + 3, 0);
+
+		for (int i = 0; i < chunkSize; ++i) { 
+			int minDistance = 1000000;
+			int nearest = 0;
+			for (int j = 0; j < 3; ++j) {
 				int distance = euclideanDistance(recvchunk[i], centroids[j]);
 				if (distance < minDistance) {
 					minDistance = distance;
-					labels[i + rank * chunks] = j;
-					if (labels[i + rank * chunks] == 0) whiteArr.push_back(recvchunk[i]);
-					else if (labels[i + rank * chunks] == 1) grayArr.push_back(recvchunk[i]);
-					else blackArr.push_back(recvchunk[i]);
+					nearest = j;
+				}
+				localdata[i] = centroids[nearest];
+				localCount[nearest]++;
+				localSum[nearest] += recvchunk[i];
+			}
+		}
+		MPI_Reduce(localSum, sum, 3, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Reduce(localCount, count, 3, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-				}
-			}
-		}
 		if (rank == 0) {
-			int t = 2;
-			while (t >= 0)
+		
+			for (size_t i = 0; i < 3; i++)
 			{
-				int sum = 0;
-				if (t == 0)
-				{
-					if(whiteArr.size()>0)
-					{
-						for (size_t i = 0; i < whiteArr.size(); i++)
-						{
-							sum += whiteArr[i];
-						}
-						w = centroids[0];
-						centroids[0] = sum / (whiteArr.size());
-					}
+				newCentroids[i] = sum[i] / count[i];
+				if (abs(newCentroids[i] - centroids[i]) > 0.5) {
+					converge = true;
 				}
-				else if (t == 1)
-				{
-					if(grayArr.size()>0)
-					{
-						for (size_t i = 0; i < grayArr.size(); i++)
-						{
-							sum += grayArr[i];
-						}
-						g = centroids[1];
-						centroids[1] = sum / (grayArr.size());
-					}
-				}
-				else
-				{
-					if(blackArr.size()>0)
-					{
-						for (size_t i = 0; i < blackArr.size(); i++)
-						{
-							sum += blackArr[i];
-						}
-						b = centroids[2];
-						centroids[2] = sum / (blackArr.size());
-					}
-				}
-				t--;
 			}
-			if (centroids[0] == w && centroids[1] == g && centroids[2] == b) {	
-				break;
+			for (size_t i = 0; i < 3; i++)
+			{
+				centroids[i] = newCentroids[i];
 			}
-			MPI_Bcast(centroids, k, MPI_INT, 0, MPI_COMM_WORLD);
 		}
+		MPI_Bcast(centroids, k, MPI_INT, 0, MPI_COMM_WORLD);
+		itr--;
 	}
-	MPI_Gather(labels, chunks, MPI_INT, imageData, chunks, MPI_INT, 0, MPI_COMM_WORLD);
-	if(rank==0)
+	MPI_Gather(localdata, chunkSize, MPI_INT, globalImage, chunkSize, MPI_INT, 0, MPI_COMM_WORLD);
+	if(rank ==0)
 	{
-		for (int i = 0; i < ImageHeight * ImageWidth; i++)
+		for (int i = ((ImageHeight * ImageWidth) / size) * size; i < ImageHeight * ImageWidth; ++i) { //ely gowa recvchunk
+			int minDistance = 1000000;
+			int nearest = 0;
+			for (int j = 0; j < 3; ++j) {
+				int distance = euclideanDistance(imageData[i], centroids[j]);
+				if (distance < minDistance) {
+					minDistance = distance;
+					nearest = j;
+				}
+				localdata[i] = centroids[nearest];
+			}
+			imageData[i] = centroids[nearest];
+
+		}
+		for (size_t i = 0; i < 3; i++)
 		{
-			if (labels[i] == 0)labels[i] = centroids[0];
-			else if(labels[i]==1)labels[i] = centroids[1];
-			else labels[i] = centroids[2];
+			cout << centroids[i] << " ";
+		}
+		cout << ((ImageHeight * ImageWidth) / size) * size <<endl;
+		cout << (ImageHeight * ImageWidth);
+		for (int i = ((ImageHeight * ImageWidth) / size) * size; i < ImageHeight * ImageWidth; ++i) {
+			cout << imageData[i] << " ";
+		}
+		for (size_t i = 0; i < chunkSize; i++)
+		{
+			cout << localdata[i]<<" ";
 		}
 	}
+
+	if (rank == 0) {
+		createImage(globalImage, ImageWidth, ImageHeight, 1);
+	}
+	delete[] imageData;
+	delete[] recvchunk;
+	delete[] localSum;
+	delete[] localCount;
+	delete[] sum;
+	delete[] count;
+
 	MPI_Finalize();
+
 	/***********************************************************/
 	stop_s = clock();
 	TotalTime += (stop_s - start_s) / double(CLOCKS_PER_SEC) * 1000;
-	createImage(labels, ImageWidth, ImageHeight, 1);
 	std::cout << "time: " << TotalTime << endl;
-	free(imageData);
+
 	return 0;
 
 }
-
-
-

@@ -115,6 +115,7 @@ int calcNumberOfchunkSize(int imglength,int size) {
 int euclideanDistance(int point1,int point2) {
 	return sqrt((point1 - point2) * (point1 - point2));
 }
+
 int main()
 {
 	int ImageWidth = 4, ImageHeight = 4;
@@ -133,15 +134,15 @@ int main()
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	int k = 3;
-	 int chunkSize = calcNumberOfchunkSize(ImageHeight * ImageWidth, size);//number assigned to processors
+	int chunkSize = calcNumberOfchunkSize(ImageHeight * ImageWidth, size);//number assigned to processors
 	int* recvchunk = new int[chunkSize];
-	int centroids[3];
+	int* centroids= new int[3]();
 	int* localdata= new int [chunkSize];
-	int* newCentroids= new int[chunkSize];
+	int* newCentroids= new int[3]();
 	bool converge = false;
 	int itr = 100;
-	int *count = new int[3];
-	int* sum = new int[3];
+	int *count = new int[3]();
+	int* sum = new int[3]();
 	int* localSum = new int[3]();
 	int* localCount = new int[3]();
 	int* globalImage=new int[size * chunkSize];
